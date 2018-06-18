@@ -1,4 +1,4 @@
-function [ status ] = stabilize_max2( video_in_path, video_out_path, pixel_to_crop, max_corner_distance )
+function [ status ] = stabilize( video_in_path, video_out_path, pixel_to_crop, max_corner_distance )
 warning('off')
 min_num_of_points = 3;
 status = 0;
@@ -6,13 +6,13 @@ input_video = vision.VideoFileReader(video_in_path, 'ImageColorSpace', 'RGB');
 video_info = aviinfo(video_in_path);
 frame_rate = video_info.FramesPerSecond;
 number_of_frames = video_info.NumFrames;
-stabilized_video = vision.VideoFileWriter(video_out_path, 'FrameRate', frame_rate);
+stabilized_video = vision.VideoFileWriter([video_out_path 'stabilized.avi'], 'FrameRate', frame_rate);
 
 cur_frame = step(input_video);
 cur_frame_value = rgb2gray(cur_frame);
 
 % Write first frame
-step(stabilized_video, cur_frame(pixel_to_crop:end, 1:end - pixel_to_crop, :));
+%step(stabilized_video, cur_frame(pixel_to_crop:end, 1:end - pixel_to_crop, :));
 
 % Detec and Extract features from first frame
 first_frame_points = detectSURFFeatures(cur_frame_value);
@@ -28,7 +28,7 @@ H = eye(3);
 
 g_transformer = vision.GeometricTransformer;
 g_estimator = vision.GeometricTransformEstimator;
-number_of_frames = 210;
+% number_of_frames = 210;
 % Progress bar
 h = waitbar(0, sprintf('Frame processed: %d / %d', 1, number_of_frames), ...
     'Name', 'Stabilizing video ...');
@@ -101,6 +101,8 @@ for f = 2 : number_of_frames
         warp_frame = cur_frame;
     end
     
+    % resize to spetific size
+    warp_frame2 = imresize(warp_frame, [480 NaN]);
     % Save modified RGB frame 
     step(stabilized_video, warp_frame(pixel_to_crop:end, 1:end - pixel_to_crop, :));
     
