@@ -22,16 +22,16 @@ function varargout = runme(varargin)
 
 % Edit the above text to modify the response to help runme
 
-% Last Modified by GUIDE v2.5 18-Jun-2018 23:23:34
+% Last Modified by GUIDE v2.5 22-Jun-2018 21:11:17
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
 gui_State = struct('gui_Name',       mfilename, ...
-                   'gui_Singleton',  gui_Singleton, ...
-                   'gui_OpeningFcn', @runme_OpeningFcn, ...
-                   'gui_OutputFcn',  @runme_OutputFcn, ...
-                   'gui_LayoutFcn',  [] , ...
-                   'gui_Callback',   []);
+    'gui_Singleton',  gui_Singleton, ...
+    'gui_OpeningFcn', @runme_OpeningFcn, ...
+    'gui_OutputFcn',  @runme_OutputFcn, ...
+    'gui_LayoutFcn',  [] , ...
+    'gui_Callback',   []);
 if nargin && ischar(varargin{1})
     gui_State.gui_Callback = str2func(varargin{1});
 end
@@ -56,7 +56,7 @@ function runme_OpeningFcn(hObject, eventdata, handles, varargin)
 handles.output = hObject;
 
 % Default Settings
-handles.pixel_to_crop  = 60;
+handles.pixel_to_crop  = 30;
 handles.max_corner_distance = 10;
 
 
@@ -80,24 +80,32 @@ else
 end
 % Check extracted Video
 handles.extracted_vidPath = '..\OUTPUT\extracted.avi';
-if exist(handles.stabilized_vidPath, 'file') == 2
-    set(handles.pushbutton_play_stabilization,'Enable','on')
+if exist(handles.extracted_vidPath, 'file') == 2
+    set(handles.pushbutton_play_extracted,'Enable','on')
 else
-    set(handles.pushbutton_play_stabilization,'Enable','off')
+    set(handles.pushbutton_play_extracted,'Enable','off')
 end
+% Check binary video
+handles.binary_vidPath = '..\OUTPUT\binary.avi';
+if exist(handles.binary_vidPath, 'file') == 2
+    set(handles.pushbutton_play_binary,'Enable','on')
+else
+    set(handles.pushbutton_play_binary,'Enable','off')
+end
+
 % Check matted Video
 handles.matted_vidPath = '..\OUTPUT\matted.avi';
-if exist(handles.stabilized_vidPath, 'file') == 2
-    set(handles.pushbutton_play_stabilization,'Enable','on')
+if exist(handles.matted_vidPath, 'file') == 2
+    set(handles.pushbutton_play_matting,'Enable','on')
 else
-    set(handles.pushbutton_play_stabilization,'Enable','off')
+    set(handles.pushbutton_play_matting,'Enable','off')
 end
 % Check OUTPUT Video
 handles.OUTPUT_vidPath = '..\OUTPUT\OUTPUT.avi';
-if exist(handles.stabilized_vidPath, 'file') == 2
-    set(handles.pushbutton_play_stabilization,'Enable','on')
+if exist(handles.OUTPUT_vidPath, 'file') == 2
+    set(handles.pushbutton_play_person,'Enable','on')
 else
-    set(handles.pushbutton_play_stabilization,'Enable','off')
+    set(handles.pushbutton_play_person,'Enable','off')
 end
 
 % % This creates the 'background' axes for gui
@@ -116,7 +124,7 @@ guidata(hObject, handles);
 
 
 % --- Outputs from this function are returned to the command line.
-function varargout = runme_OutputFcn(hObject, eventdata, handles) 
+function varargout = runme_OutputFcn(hObject, eventdata, handles)
 % varargout  cell array for returning output args (see VARARGOUT);
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -211,6 +219,54 @@ function pushbutton_run_all_Callback(hObject, eventdata, handles)
 % hObject    handle to pushbutton_run_all (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+% Stabilization
+set(handles.text_err,'String','Start Stabilization', 'ForegroundColor', [0 1 0])
+[ handles.stabilization_status ] = stabilize( get(handles.edit_input_path,'String'), get(handles.edit_output_path,'String'), handles.pixel_to_crop, handles.max_corner_distance);
+if handles.stabilization_status == 0
+    set(handles.text_err,'String','Stabilization completed', 'ForegroundColor', [0 1 0])
+else
+    set(handles.text_err,'String','Stabilization failed', 'ForegroundColor', [1 0 0])
+end
+set(handles.pushbutton_play_stabilization,'Enable','on')
+% Extraction + binary
+if exist(handles.stabilized_vidPath, 'file') == 2
+    [ handles.extracted_status ] = bg_substract_ilya( handles.stabilized_vidPath, get(handles.edit_output_path,'String'), handles.bgTh, handles.winSize, 0);
+%     [ handles.extracted_status ] = bg_substract( handles.stabilized_vidPath, get(handles.edit_output_path,'String'), handles.bgTh, handles.winSize, 0 );
+    if handles.extracted_status == 0
+        set(handles.text_err,'String','Background substruction completed', 'ForegroundColor', [0 1 0])
+    else
+        set(handles.text_err,'String','Background substruction failed', 'ForegroundColor', [1 0 0])
+    end
+    set(handles.pushbutton_play_extracted,'Enable','on')
+    set(handles.pushbutton_play_binary,'Enable','on')
+else
+    set(handles.text_err,'String','First complete Stabilization phase', 'ForegroundColor', [1 0 0])
+end
+% Matting
+if exist(handles.binary_vidPath, 'file') == 2
+    [handles.matting_status] = matting_ilya(handles.stabilized_vidPath, handles.binary_vidPath, [get(handles.edit_output_path,'String') 'matted.avi'], handles.background_img);
+    if handles.matting_status == 0
+        set(handles.text_err,'String','Matting completed', 'ForegroundColor', [0 1 0])
+    else
+        set(handles.text_err,'String','Matting failed', 'ForegroundColor', [1 0 0])
+    end
+    set(handles.pushbutton_play_matting,'Enable','on')
+else
+    set(handles.text_err,'String','First complete Background substruction phase', 'ForegroundColor', [1 0 0])
+end
+% tracing
+if exist(handles.matted_vidPath, 'file') == 2
+    objROI = [handles.locX, handles.locY, handles.locW, handles.locH];
+    [handles.tracking_status ] = tracking_ilya( handles.matted_vidPath, [get(handles.edit_output_path,'String') 'OUTPUT.avi'], 0, objROI);
+    if handles.tracking_status == 0
+        set(handles.text_err,'String','Tracking completed', 'ForegroundColor', [0 1 0])
+    else
+        set(handles.text_err,'String','Tracking failed', 'ForegroundColor', [1 0 0])
+    end
+    set(handles.pushbutton_play_person,'Enable','on')
+else
+    set(handles.text_err,'String','First complete Matting phase', 'ForegroundColor', [1 0 0])
+end
 
 
 % --- Executes on button press in pushbutton_stabilization.
@@ -233,6 +289,20 @@ function pushbutton_background_Callback(hObject, eventdata, handles)
 % hObject    handle to pushbutton_background (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+if exist(handles.stabilized_vidPath, 'file') == 2
+    [ handles.extracted_status ] = bg_substract_ilya( handles.stabilized_vidPath, get(handles.edit_output_path,'String'), handles.bgTh, handles.winSize, 0);
+%     [ handles.extracted_status ] = bg_substract( handles.stabilized_vidPath, get(handles.edit_output_path,'String'), handles.bgTh, handles.winSize, 0 );
+    if handles.extracted_status == 0
+        set(handles.text_err,'String','Background substruction completed', 'ForegroundColor', [0 1 0])
+    else
+        set(handles.text_err,'String','Background substruction failed', 'ForegroundColor', [1 0 0])
+    end
+    set(handles.pushbutton_play_extracted,'Enable','on')
+    set(handles.pushbutton_play_binary,'Enable','on')
+else
+    set(handles.text_err,'String','First complete Stabilization phase', 'ForegroundColor', [1 0 0])
+end
+
 
 
 % --- Executes on button press in pushbutton_matting.
@@ -240,14 +310,35 @@ function pushbutton_matting_Callback(hObject, eventdata, handles)
 % hObject    handle to pushbutton_matting (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-
+if exist(handles.binary_vidPath, 'file') == 2
+    [handles.matting_status] = matting_ilya(handles.stabilized_vidPath, handles.binary_vidPath, [get(handles.edit_output_path,'String') 'matted.avi'], handles.background_img);
+    if handles.matting_status == 0
+        set(handles.text_err,'String','Matting completed', 'ForegroundColor', [0 1 0])
+    else
+        set(handles.text_err,'String','Matting failed', 'ForegroundColor', [1 0 0])
+    end
+    set(handles.pushbutton_play_matting,'Enable','on')
+else
+    set(handles.text_err,'String','First complete Background substruction phase', 'ForegroundColor', [1 0 0])
+end
 
 % --- Executes on button press in pushbutton_tracking.
 function pushbutton_tracking_Callback(hObject, eventdata, handles)
 % hObject    handle to pushbutton_tracking (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-
+if exist(handles.matted_vidPath, 'file') == 2
+    objROI = [handles.locX, handles.locY, handles.locW, handles.locH];
+    [handles.tracking_status ] = tracking_ilya( handles.matted_vidPath, [get(handles.edit_output_path,'String') 'OUTPUT.avi'], 0, objROI);
+    if handles.tracking_status == 0
+        set(handles.text_err,'String','Tracking completed', 'ForegroundColor', [0 1 0])
+    else
+        set(handles.text_err,'String','Tracking failed', 'ForegroundColor', [1 0 0])
+    end
+    set(handles.pushbutton_play_person,'Enable','on')
+else
+    set(handles.text_err,'String','First complete Matting phase', 'ForegroundColor', [1 0 0])
+end
 
 % --- Executes on button press in checkbox_person.
 function checkbox_person_Callback(hObject, eventdata, handles)
@@ -286,38 +377,49 @@ function pushbutton_play_stabilization_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-    if exist(handles.stabilized_vidPath, 'file') == 2
-        implay(handles.stabilized_vidPath);
-        set(handles.text_err,'String',' ')
-    else 
-        set(handles.text_err,'String','First Run video stabilization to create video', 'ForegroundColor', [1 0 0])
-    end
+if exist(handles.stabilized_vidPath, 'file') == 2
+    implay(handles.stabilized_vidPath);
+    set(handles.text_err,'String',' ')
+else
+    set(handles.text_err,'String','First Run video stabilization to create video', 'ForegroundColor', [1 0 0])
+end
 
 
-% --- Executes on button press in pushbutton_play_background.
-function pushbutton_play_background_Callback(hObject, eventdata, handles)
-% hObject    handle to pushbutton_play_background (see GCBO)
+% --- Executes on button press in pushbutton_play_extracted.
+function pushbutton_play_extracted_Callback(hObject, eventdata, handles)
+% hObject    handle to pushbutton_play_extracted (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-    if exist(handles.extracted_vidPath, 'file') == 2
-        implay(handles.stabilized_vidPath);
-        set(handles.text_err,'String',' ')
-    else 
-        set(handles.text_err,'String','First Run background subtraction to create video', 'ForegroundColor', [1 0 0])
-    end
+if exist(handles.extracted_vidPath, 'file') == 2
+    implay(handles.extracted_vidPath);
+    set(handles.text_err,'String',' ')
+else
+    set(handles.text_err,'String','First Run background subtraction to create video', 'ForegroundColor', [1 0 0])
+end
 
+% --- Executes on button press in pushbutton_play_binary.
+function pushbutton_play_binary_Callback(hObject, eventdata, handles)
+% hObject    handle to pushbutton_play_binary (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+if exist(handles.binary_vidPath, 'file') == 2
+    implay(handles.binary_vidPath);
+    set(handles.text_err,'String',' ')
+else
+    set(handles.text_err,'String','First select INPUT video', 'ForegroundColor', [1 0 0])
+end
 
 % --- Executes on button press in pushbutton_play_matting.
 function pushbutton_play_matting_Callback(hObject, eventdata, handles)
 % hObject    handle to pushbutton_play_matting (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-    if exist(handles.matted_vidPath, 'file') == 2
-        implay(handles.stabilized_vidPath);
-        set(handles.text_err,'String',' ')
-    else 
-        set(handles.text_err,'String','First Run video matting to create video', 'ForegroundColor', [1 0 0])
-    end
+if exist(handles.matted_vidPath, 'file') == 2
+    implay(handles.matted_vidPath);
+    set(handles.text_err,'String',' ')
+else
+    set(handles.text_err,'String','First Run video matting to create video', 'ForegroundColor', [1 0 0])
+end
 
 
 % --- Executes on button press in pushbutton_play_person.
@@ -325,13 +427,25 @@ function pushbutton_play_person_Callback(hObject, eventdata, handles)
 % hObject    handle to pushbutton_play_person (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-    if exist(handles.OUTPUT_vidPath, 'file') == 2
-        implay(handles.stabilized_vidPath);
-        set(handles.text_err,'String',' ')
-    else 
-        set(handles.text_err,'String','First Run person tracking to create video', 'ForegroundColor', [1 0 0])
-    end
+if exist(handles.OUTPUT_vidPath, 'file') == 2
+    implay(handles.OUTPUT_vidPath);
+    set(handles.text_err,'String',' ')
+else
+    set(handles.text_err,'String','First Run person tracking to create video', 'ForegroundColor', [1 0 0])
+end
 
+% --- Executes on button press in pushbutton_play_INPUT_video.
+function pushbutton_play_INPUT_video_Callback(hObject, eventdata, handles)
+% hObject    handle to pushbutton_play_INPUT_video (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+if exist(get(handles.edit_input_path, 'String'), 'file') == 2
+    implay(get(handles.edit_input_path, 'String'));
+    set(handles.text_err,'String',' ')
+else
+    set(handles.text_err,'String','First select INPUT video', 'ForegroundColor', [1 0 0])
+end
 
 % --- Executes on button press in pushbutton_change_background.
 function pushbutton_change_background_Callback(hObject, eventdata, handles)
@@ -348,26 +462,27 @@ else
         handles.background_img = [dir_path file_name];
     end
 end
-
-
-
+guidata(hObject, handles);
 
 % --- Executes on button press in pushbutton_manual_person_selection.
 function pushbutton_manual_person_selection_Callback(hObject, eventdata, handles)
 % hObject    handle to pushbutton_manual_person_selection (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+matted_video = vision.VideoFileReader(handles.matted_vidPath, 'ImageColorSpace', 'RGB');
+first_frame = step(matted_video);
+fig = figure(1);
+imshow(first_frame);
+[xi,yi] = ginput(2);
+close(fig)
+if length(xi) == 2
+    handles.locX      = min(xi);
+    handles.locY      = min(yi);
+    handles.locW      = max(xi) - min(xi);
+    handles.locH      = max(yi) - min(yi);
+    set(handles.text_err,'String','Person rectangle is updated', 'ForegroundColor', [0 1 0])
+else
+    set(handles.text_err,'String','Fail to update person rectangle', 'ForegroundColor', [1 0 0])
+end
+guidata(hObject, handles);
 
-
-% --- Executes on button press in pushbutton_play_INPUT_video.
-function pushbutton_play_INPUT_video_Callback(hObject, eventdata, handles)
-% hObject    handle to pushbutton_play_INPUT_video (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-    if exist(get(handles.edit_input_path, 'String'), 'file') == 2
-        implay(get(handles.edit_input_path, 'String'));
-        set(handles.text_err,'String',' ')
-    else 
-        set(handles.text_err,'String','First select INPUT video', 'ForegroundColor', [1 0 0])
-    end
