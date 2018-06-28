@@ -1,160 +1,206 @@
-function [ status ] = bg_substract( video_in_path, video_out_path, OutMaskPath, BGth, winSize, Debug )
-warning('off')
-% video_in_path ='C:\Users\Maximus\Desktop\Toar_Sheni\Video Processing - 2018\FinalProject\stabilize_INPUT_FAST2.avi';
-status = 0;
-input_video = vision.VideoFileReader(video_in_path, 'ImageColorSpace', 'RGB');
-video_info = aviinfo(video_in_path);
+function [ status ] = bg_substract( inputPath, OutPath, bg_thresh, win_size, Debug )
+
+%     inputVid    = VideoReader(inputPath);
+inputVid = vision.VideoFileReader(inputPath, 'ImageColorSpace', 'RGB');
+% frame_rate       = inputVid.FrameRate;
+% number_of_frames     = inputVid.NumberOfFrames;
+
+video_info = aviinfo(inputPath);
 frame_rate = video_info.FramesPerSecond;
+video_Comp = 'DV Video Encoder'; %'MJPEG Compressor'; %'None (uncompressed)';%'DV Video Encoder'; %'MJPEG Compressor'; % video_info.VideoCompression; %
+video_quality = video_info.Quality;
 number_of_frames = video_info.NumFrames;
-extracted_video = vision.VideoFileWriter([video_out_path 'extracted.avi'], 'FrameRate', frame_rate);
 
-%Use first frame as Background Image
-background = step(input_video);
+outVid      = vision.VideoFileWriter([OutPath 'extracted.avi'], 'FrameRate', frame_rate,'Quality',video_quality,'VideoCompressor',video_Comp);
+%'VideoCompressor', 'MJPEG Compressor');
+outMaskVid  = vision.VideoFileWriter([OutPath 'binary.avi'], 'FrameRate', frame_rate,'Quality',video_quality,'VideoCompressor',video_Comp);
+%'VideoCompressor', 'MJPEG Compressor');
 
-%Read second Frame
-cur_frame = step(input_video);
-
-
-% %Display Background and Foreground
-% figure(33)
-% subplot(2,2,1);imshow(background);title('BackGround');
-% subplot(2,2,2);imshow(cur_frame-background);title('Current Frame')
-
-
-% Save modified RGB frame
-
-sigma = 0.5;
-sub_im = cur_frame-background;
-% imshow(sub_im)
-% I_RGB2 = imgaussfilt(cur_frame-background, sigma);
-% % figure(33)
-% [~, im_grad] = imgradient(rgb2gray(I_RGB2), 'roberts');
-% % imshow(im_grad)
-% im_gray_edge = bwareaopen(im_grad, ceil(75 / 1));
-% % imshow(im_gray_edge)
-% im_edges = imfill(im_gray_edge, 'holes');
-% % imshow(im_edges)
-% im_edges = bwareaopen(im_edges, 500);
-% % imshow(im_edges)
-% % figure(33)
-% % imshow(cur_frame-background);
-% % imshow(I_RGB2);
-step(extracted_video, sub_im);
-h = waitbar(0, sprintf('Frame processed: %d / %d', 1, number_of_frames), ...
-    'Name', 'Stabilizing video ...');
-for i=1:number_of_frames
-    background = cur_frame;
-    cur_frame = step(input_video);
-    
-    
-    sub_im = cur_frame-background;
-
-%     [~, im_grad] = imgradient(rgb2gray(sub_im), 'sobel');
-% 
-%     im_gray_edge = bwareaopen(im_grad, ceil(75 / 1));
-% 
-%     im_edges = imfill(im_gray_edge, 'holes');
-% 
-%     im_edges = bwareaopen(im_edges, 500);
-%     
-    step(extracted_video, sub_im);
-        waitbar(i / number_of_frames, h, ...
-        sprintf('Frame processed: %d / %d', i, number_of_frames));
+%     initFrame   = read(inputVid, 1);
+initFrame   = step(inputVid);
+[m, n, d]   = size(initFrame);
+% start read from firts frame
+reset(inputVid)
+h = waitbar(0, sprintf('Frame processed: %d / %d', 0, (win_size + 1)/2), ...
+    'Name', 'Background substraction initialization ...');
+% save video as matrix
+count_f = 1;
+vid_matrix = single(zeros(m, n,d,number_of_frames));
+while count_f < number_of_frames
+    vid_matrix(:,:,:,count_f) = step(inputVid);
+    count_f = count_f + 1;
 end
-close(h)
 
-% Save stabilized RGB video
-release(extracted_video);
-% Close input video
-release(input_video);
+% Counter containing the number of pixels lower than median
+lb = repmat(uint8(0), [m, n]);
+
+% Histogram (based on time window)
+histMat = repmat(uint8(0), [m, n, 256]);
+
+% Median  matrix
+medianMat = repmat(uint8(0), [m, n]);
+
+% Image sized grid
+[xx, yy] = meshgrid(1:n, 1:m);
+
+if ((win_size + 1) / 2) >= number_of_frames
+    fprintf('input  is too small! (minimum number of frames: %d\n', ...
+        (win_size + 1) / 2);
+    status = 1;
+    return;
+end
+
+% Last winSize frames for each pixel
+framesWindowMat = repmat(uint8(0), [m, n, win_size]);
+
+% h = waitbar(0, sprintf('Frame processed: %d / %d', 0, (win_size + 1)/2), ...
+%     'Name', 'Background substraction initialization ...');
+
+for t = 1:(win_size + 1)/2
+    
+    %         newFrameHSV     = rgb2hsv(read(inputVid, t));
+    newFrameHSV     = rgb2hsv(vid_matrix(:,:,:,t));
+    
+    newFrameValue   = uint8(newFrameHSV(:, :, 3) * 255);
+    
+    framesWindowMat(:, :, t) = newFrameValue;
+    
+    % Map intensity values to linear index
+    intensityMat = double(newFrameValue + 1);
+    idx = sub2ind([m, n, 256], yy(:), xx(:), intensityMat(:));
+    
+    if t == 1
+        histMat(idx) = histMat(idx) + 1;
+    else
+        % Mirror padding for first half window pixels
+        histMat(idx) = histMat(idx) + 2;
+    end
+    
+    waitbar(t / (win_size + 1)/2, h, ...
+        sprintf('Frame processed: %d / %d', t, (win_size + 1)/2));
+end
+
+close(h);
+% start read from firts frame
+% reset(inputVid)
+tmpMat = framesWindowMat;
+
+% Create mirror reflection
+framesWindowMat(:, :, 1:(win_size + 1)/2) = ...
+    flipdim(framesWindowMat(:, :, 1:(win_size + 1)/2), 3);
+
+framesWindowMat(:, :, ((win_size + 1)/2 + 1):end) = ...
+    tmpMat(:, :, 2:(win_size + 1)/2);
+
+medianMat = median(framesWindowMat, 3);
+
+% Collect num of pixels smaller than median value
+for i = 1 : m*n
+    lb(i) = sum(histMat(yy(i), xx(i), 1:medianMat(i) - 1));
+end
+
+h = waitbar(0, sprintf('Frame processed: %d / %d', 0, number_of_frames), ...
+    'Name', 'Background substraction ...');
 
 
-%Convert RGB 2 HSV Color conversion
-[background_hsv]=uint8(round(rgb2hsv(background)));
-[currentFrame_hsv]=uint8(round(rgb2hsv(cur_frame)));
-out = bitxor(background_hsv,currentFrame_hsv);
-
-
-% subplot(2,2,1);imshow(Background_hsv);title('BackGround');
-% subplot(2,2,2);imshow(Out);title('Current Frame')
-
-%Convert RGB 2 GRAY
-out=rgb2gray(out);
-
-%Read Rows and Columns of the Image
-[rows columns]=size(out);
-
-%Convert to Binary Image
-for i=1:rows
-    for j=1:columns
-        
-        if out(i,j) >0
-            
-            binaryImage(i,j)=1;
+% Substract BG
+for f = 1:number_of_frames
+    
+    ticID = tic;
+    
+    %     curFrame        = read(inputVid, f);
+    curFrame        = vid_matrix(:,:,:,f);
+    curFrameHSV     = rgb2hsv(curFrame);
+    curFrameValue   = uint8(curFrameHSV(:, :, 3) * 255);
+    
+    if f > 1
+        % Update median
+        if (f + (win_size -1)/2 <= number_of_frames)
+            newFrame = vid_matrix(:,:,:, f + (win_size - 1)/2);
             
         else
-            
-            binaryImage(i,j)=0;
+            % Read in reverse order from the end
+            mirrorIdx = number_of_frames - mod(f + (win_size - 1)/2, number_of_frames);
+            newFrame = vid_matrix(:,:,:, mirrorIdx);
             
         end
         
-    end
-end
-
-%Apply Median filter to remove Noise
-filteredImage=medfilt2(binaryImage,[5 5]);
-
-
-%Boundary Label the Filtered Image
-[L num]=bwlabel(filteredImage);
-
-STATS=regionprops(L,'all');
-cc=[];
-removed=0;
-
-%Remove the noisy regions
-for i=1:num
-    dd=STATS(i).Area;
-    
-    if (dd < 500)
+        newFrameHSV = rgb2hsv(newFrame);
+        newFrameValue = uint8(newFrameHSV(:, :, 3) * 255);
         
-        L(L==i)=0;
-        removed = removed + 1;
-        num=num-1;
+        % Histogram update
+        intensityMat = double(newFrameValue + 1);
+        idx = sub2ind([m, n, 256], yy(:), xx(:), intensityMat(:));
+        histMat(idx) = histMat(idx) + 1;
         
-    else
+        % Remove last element and update histogram
+        lastFrameValue = double(framesWindowMat(:, :, 1));
+        idx = sub2ind([m, n, 256], yy(:), xx(:), lastFrameValue(:) + 1);
+        histMat(idx) = histMat(idx) - 1;
         
-    end
-    
-end
-
-[L2 num2]=bwlabel(L);
-
-% Trace region boundaries in a binary image.
-
-[B,L,N,A] = bwboundaries(L2);
-
-%Display results
-
-% subplot(2,2,3),  imshow(L2);title('BackGround Detected');
-% subplot(2,2,4),  imshow(L2);title('Blob Detected');
-
-hold on;
-
-for k=1:length(B),
-    
-    if(~sum(A(k,:)))
-        boundary = B{k};
-        plot(boundary(:,2), boundary(:,1), 'r','LineWidth',2);
+        % Update number of pixels below median
+        mask = (lastFrameValue > medianMat) & (newFrameValue < medianMat);
+        lb = lb + uint8(mask);
+        mask = (lastFrameValue == medianMat) & (newFrameValue < medianMat);
+        lb = lb + uint8(mask);
+        mask = (lastFrameValue < medianMat) & (newFrameValue > medianMat);
+        lb = lb - uint8(mask);
+        mask = (lastFrameValue < medianMat) & (newFrameValue == medianMat);
+        lb = lb - uint8(mask);
         
-        for l=find(A(:,k))'
-            boundary = B{l};
-            plot(boundary(:,2), boundary(:,1), 'g','LineWidth',2);
+        % Calculate median
+        th = (win_size - 1) / 2;
+        for i = 1:m
+            for j = 1:n
+                %lower median
+                while lb(i, j) > th
+                    medianMat(i, j) = medianMat(i, j) - 1;
+                    lb(i,j) = lb(i, j) - histMat(i, j, medianMat(i, j) + 1);
+                end
+                %higher median
+                while (medianMat(i, j) < 256) && (lb(i, j) + histMat(i, j, medianMat(i, j) + 1)) <= th
+                    lb(i, j) = lb(i, j) + histMat(i, j, medianMat(i, j) + 1);
+                    medianMat(i, j) = medianMat(i, j) + 1;
+                    while (medianMat(i, j) < 256) && (histMat(i, j, medianMat(i, j) + 1) == 0)
+                        medianMat(i, j) = medianMat(i, j) + 1;
+                    end
+                end
+            end
         end
         
+        % Update frame window
+        framesWindowMat = circshift(framesWindowMat, [0, 0, -1]);
+        framesWindowMat(:, :, win_size) = newFrameValue;
     end
+    
+    diff = (abs(medianMat - curFrameValue) > bg_thresh);
+    
+    fgMask = getFgMask(diff);
+    
+    curFrameNoBG = repmat(single(fgMask), [1 1 3]).* (curFrame);
+    
+    step(outVid, curFrameNoBG);
+    step(outMaskVid, fgMask * 255);
+    
+%     if Debug && mod(f, 10) == 0
+%         imwrite(diff * 255, sprintf('../output/frames/diff_f_%d.jpg', f));
+%         imwrite(fgMask * 255, sprintf('../output/frames/mask_f_%d.jpg', f));
+%     end
+    
+    frameTime = toc(ticID);
+    
+    % Update waitbar
+    waitbar(f / number_of_frames, h, ...
+        sprintf('Frame processed: %d / %d (%.2f [sec])', ...
+        f, number_of_frames, frameTime));
     
 end
 
+release(outMaskVid);
+release(outVid);
+release(inputVid);
+close(h);
 
+status = 0;
+end
 

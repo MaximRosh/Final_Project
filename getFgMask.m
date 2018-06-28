@@ -1,4 +1,4 @@
-function [ mask ] = getFgMask_ilya( bwImg )
+function [ mask ] = getFgMask( bwImg )
 %
 % Filter noise by morphological operations
 %

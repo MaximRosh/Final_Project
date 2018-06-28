@@ -1,4 +1,4 @@
-function W = compNormWeights_ilya(I, S, q)
+function W = compNormWeights(I, S, q)
 
     [~, N] = size(S);
 

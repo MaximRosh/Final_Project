@@ -229,57 +229,6 @@ pushbutton_matting_Callback(hObject, eventdata, handles)
 pushbutton_manual_person_selection_Callback(hObject, eventdata, handles)
 pushbutton_tracking_Callback(hObject, eventdata, handles)
 
-
-
-% set(handles.text_err,'String','Start Stabilization', 'ForegroundColor', [0 1 0])
-% [ handles.stabilization_status ] = stabilize( get(handles.edit_input_path,'String'), get(handles.edit_output_path,'String'), handles.pixel_to_crop, handles.max_corner_distance);
-% if handles.stabilization_status == 0
-%     set(handles.text_err,'String','Stabilization completed', 'ForegroundColor', [0 1 0])
-% else
-%     set(handles.text_err,'String','Stabilization failed', 'ForegroundColor', [1 0 0])
-% end
-% set(handles.pushbutton_play_stabilization,'Enable','on')
-% % Extraction + binary
-% if exist(handles.stabilized_vidPath, 'file') == 2
-%     [ handles.extracted_status ] = bg_substract_ilya( handles.stabilized_vidPath, get(handles.edit_output_path,'String'), handles.bg_thresh, handles.win_size, 0);
-%     %     [ handles.extracted_status ] = bg_substract( handles.stabilized_vidPath, get(handles.edit_output_path,'String'), handles.bg_thresh, handles.win_size, 0 );
-%     if handles.extracted_status == 0
-%         set(handles.text_err,'String','Background substruction completed', 'ForegroundColor', [0 1 0])
-%     else
-%         set(handles.text_err,'String','Background substruction failed', 'ForegroundColor', [1 0 0])
-%     end
-%     set(handles.pushbutton_play_extracted,'Enable','on')
-%     set(handles.pushbutton_play_binary,'Enable','on')
-% else
-%     set(handles.text_err,'String','First complete Stabilization phase', 'ForegroundColor', [1 0 0])
-% end
-% % Matting
-% if exist(handles.binary_vidPath, 'file') == 2
-%     [handles.matting_status] = matting_ilya(handles.stabilized_vidPath, handles.binary_vidPath, [get(handles.edit_output_path,'String') 'matted.avi'], handles.background_img);
-%     if handles.matting_status == 0
-%         set(handles.text_err,'String','Matting completed', 'ForegroundColor', [0 1 0])
-%     else
-%         set(handles.text_err,'String','Matting failed', 'ForegroundColor', [1 0 0])
-%     end
-%     set(handles.pushbutton_play_matting,'Enable','on')
-% else
-%     set(handles.text_err,'String','First complete Background substruction phase', 'ForegroundColor', [1 0 0])
-% end
-% % tracing
-% if exist(handles.matted_vidPath, 'file') == 2
-%     objROI = [handles.loc_X, handles.loc_Y, handles.loc_W, handles.loc_H];
-%     [handles.tracking_status ] = tracking_ilya( handles.matted_vidPath, [get(handles.edit_output_path,'String') 'OUTPUT.avi'], 0, objROI);
-%     if handles.tracking_status == 0
-%         set(handles.text_err,'String','Tracking completed', 'ForegroundColor', [0 1 0])
-%     else
-%         set(handles.text_err,'String','Tracking failed', 'ForegroundColor', [1 0 0])
-%     end
-%     set(handles.pushbutton_play_person,'Enable','on')
-% else
-%     set(handles.text_err,'String','First complete Matting phase', 'ForegroundColor', [1 0 0])
-% end
-
-
 % --- Executes on button press in pushbutton_stabilization.
 function pushbutton_stabilization_Callback(hObject, eventdata, handles)
 % hObject    handle to pushbutton_stabilization (see GCBO)
@@ -301,8 +250,7 @@ function pushbutton_background_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 if exist(handles.stabilized_vidPath, 'file') == 2
-    [ handles.extracted_status ] = bg_substract_ilya( handles.stabilized_vidPath, get(handles.edit_output_path,'String'), handles.bg_thresh, handles.win_size, 0);
-%         [ handles.extracted_status ] = bg_substract( handles.stabilized_vidPath, get(handles.edit_output_path,'String'), handles.bg_thresh, handles.win_size, 0 );
+    [ handles.extracted_status ] = bg_substract( handles.stabilized_vidPath, get(handles.edit_output_path,'String'), handles.bg_thresh, handles.win_size, 0);
     if handles.extracted_status == 0
         set(handles.text_err,'String','Background substruction completed', 'ForegroundColor', [0 1 0])
     else
@@ -322,7 +270,7 @@ function pushbutton_matting_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 if exist(handles.binary_vidPath, 'file') == 2
-    [handles.matting_status] = matting_ilya(handles.stabilized_vidPath, handles.binary_vidPath, [get(handles.edit_output_path,'String') 'matted.avi'], handles.background_img);
+    [handles.matting_status] = matting(handles.stabilized_vidPath, handles.binary_vidPath, [get(handles.edit_output_path,'String') 'matted.avi'], handles.background_img);
     if handles.matting_status == 0
         set(handles.text_err,'String','Matting completed', 'ForegroundColor', [0 1 0])
     else
@@ -340,7 +288,7 @@ function pushbutton_tracking_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 if exist(handles.matted_vidPath, 'file') == 2
     objROI = [handles.loc_X, handles.loc_Y, handles.loc_W, handles.loc_H];
-    [handles.tracking_status ] = tracking_ilya( handles.matted_vidPath, [get(handles.edit_output_path,'String') 'OUTPUT.avi'], 0, objROI);
+    [handles.tracking_status ] = tracking( handles.matted_vidPath, [get(handles.edit_output_path,'String') 'OUTPUT.avi'], 0, objROI);
     if handles.tracking_status == 0
         set(handles.text_err,'String','Tracking completed', 'ForegroundColor', [0 1 0])
     else
