@@ -22,7 +22,7 @@ function varargout = runme(varargin)
 
 % Edit the above text to modify the response to help runme
 
-% Last Modified by GUIDE v2.5 22-Jun-2018 21:11:17
+% Last Modified by GUIDE v2.5 28-Jun-2018 00:39:54
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -60,13 +60,13 @@ handles.pixel_to_crop  = 30;
 handles.max_corner_distance = 10;
 
 
-handles.winSize   = 61;
-handles.bgTh      = 30;
+handles.win_size   = 61;
+handles.bg_thresh  = 25;
 
-handles.locX      = 149;
-handles.locY      = 12;
-handles.locW      = 94;
-handles.locH      = 270;
+handles.loc_X      = 149;
+handles.loc_Y      = 12;
+handles.loc_W      = 94;
+handles.loc_H      = 270;
 
 % Default background image
 handles.background_img = '..\INPUT\background.jpg';
@@ -120,7 +120,7 @@ end
 guidata(hObject, handles);
 
 % UIWAIT makes runme wait for user response (see UIRESUME)
-% uiwait(handles.figure1);
+% uiwait(handles.gui_main);
 
 
 % --- Outputs from this function are returned to the command line.
@@ -220,53 +220,64 @@ function pushbutton_run_all_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 % Stabilization
-set(handles.text_err,'String','Start Stabilization', 'ForegroundColor', [0 1 0])
-[ handles.stabilization_status ] = stabilize( get(handles.edit_input_path,'String'), get(handles.edit_output_path,'String'), handles.pixel_to_crop, handles.max_corner_distance);
-if handles.stabilization_status == 0
-    set(handles.text_err,'String','Stabilization completed', 'ForegroundColor', [0 1 0])
-else
-    set(handles.text_err,'String','Stabilization failed', 'ForegroundColor', [1 0 0])
-end
-set(handles.pushbutton_play_stabilization,'Enable','on')
+pushbutton_stabilization_Callback(hObject, eventdata, handles)
 % Extraction + binary
-if exist(handles.stabilized_vidPath, 'file') == 2
-    [ handles.extracted_status ] = bg_substract_ilya( handles.stabilized_vidPath, get(handles.edit_output_path,'String'), handles.bgTh, handles.winSize, 0);
-%     [ handles.extracted_status ] = bg_substract( handles.stabilized_vidPath, get(handles.edit_output_path,'String'), handles.bgTh, handles.winSize, 0 );
-    if handles.extracted_status == 0
-        set(handles.text_err,'String','Background substruction completed', 'ForegroundColor', [0 1 0])
-    else
-        set(handles.text_err,'String','Background substruction failed', 'ForegroundColor', [1 0 0])
-    end
-    set(handles.pushbutton_play_extracted,'Enable','on')
-    set(handles.pushbutton_play_binary,'Enable','on')
-else
-    set(handles.text_err,'String','First complete Stabilization phase', 'ForegroundColor', [1 0 0])
-end
+pushbutton_background_Callback(hObject, eventdata, handles)
 % Matting
-if exist(handles.binary_vidPath, 'file') == 2
-    [handles.matting_status] = matting_ilya(handles.stabilized_vidPath, handles.binary_vidPath, [get(handles.edit_output_path,'String') 'matted.avi'], handles.background_img);
-    if handles.matting_status == 0
-        set(handles.text_err,'String','Matting completed', 'ForegroundColor', [0 1 0])
-    else
-        set(handles.text_err,'String','Matting failed', 'ForegroundColor', [1 0 0])
-    end
-    set(handles.pushbutton_play_matting,'Enable','on')
-else
-    set(handles.text_err,'String','First complete Background substruction phase', 'ForegroundColor', [1 0 0])
-end
+pushbutton_matting_Callback(hObject, eventdata, handles)
 % tracing
-if exist(handles.matted_vidPath, 'file') == 2
-    objROI = [handles.locX, handles.locY, handles.locW, handles.locH];
-    [handles.tracking_status ] = tracking_ilya( handles.matted_vidPath, [get(handles.edit_output_path,'String') 'OUTPUT.avi'], 0, objROI);
-    if handles.tracking_status == 0
-        set(handles.text_err,'String','Tracking completed', 'ForegroundColor', [0 1 0])
-    else
-        set(handles.text_err,'String','Tracking failed', 'ForegroundColor', [1 0 0])
-    end
-    set(handles.pushbutton_play_person,'Enable','on')
-else
-    set(handles.text_err,'String','First complete Matting phase', 'ForegroundColor', [1 0 0])
-end
+pushbutton_manual_person_selection_Callback(hObject, eventdata, handles)
+pushbutton_tracking_Callback(hObject, eventdata, handles)
+
+
+
+% set(handles.text_err,'String','Start Stabilization', 'ForegroundColor', [0 1 0])
+% [ handles.stabilization_status ] = stabilize( get(handles.edit_input_path,'String'), get(handles.edit_output_path,'String'), handles.pixel_to_crop, handles.max_corner_distance);
+% if handles.stabilization_status == 0
+%     set(handles.text_err,'String','Stabilization completed', 'ForegroundColor', [0 1 0])
+% else
+%     set(handles.text_err,'String','Stabilization failed', 'ForegroundColor', [1 0 0])
+% end
+% set(handles.pushbutton_play_stabilization,'Enable','on')
+% % Extraction + binary
+% if exist(handles.stabilized_vidPath, 'file') == 2
+%     [ handles.extracted_status ] = bg_substract_ilya( handles.stabilized_vidPath, get(handles.edit_output_path,'String'), handles.bg_thresh, handles.win_size, 0);
+%     %     [ handles.extracted_status ] = bg_substract( handles.stabilized_vidPath, get(handles.edit_output_path,'String'), handles.bg_thresh, handles.win_size, 0 );
+%     if handles.extracted_status == 0
+%         set(handles.text_err,'String','Background substruction completed', 'ForegroundColor', [0 1 0])
+%     else
+%         set(handles.text_err,'String','Background substruction failed', 'ForegroundColor', [1 0 0])
+%     end
+%     set(handles.pushbutton_play_extracted,'Enable','on')
+%     set(handles.pushbutton_play_binary,'Enable','on')
+% else
+%     set(handles.text_err,'String','First complete Stabilization phase', 'ForegroundColor', [1 0 0])
+% end
+% % Matting
+% if exist(handles.binary_vidPath, 'file') == 2
+%     [handles.matting_status] = matting_ilya(handles.stabilized_vidPath, handles.binary_vidPath, [get(handles.edit_output_path,'String') 'matted.avi'], handles.background_img);
+%     if handles.matting_status == 0
+%         set(handles.text_err,'String','Matting completed', 'ForegroundColor', [0 1 0])
+%     else
+%         set(handles.text_err,'String','Matting failed', 'ForegroundColor', [1 0 0])
+%     end
+%     set(handles.pushbutton_play_matting,'Enable','on')
+% else
+%     set(handles.text_err,'String','First complete Background substruction phase', 'ForegroundColor', [1 0 0])
+% end
+% % tracing
+% if exist(handles.matted_vidPath, 'file') == 2
+%     objROI = [handles.loc_X, handles.loc_Y, handles.loc_W, handles.loc_H];
+%     [handles.tracking_status ] = tracking_ilya( handles.matted_vidPath, [get(handles.edit_output_path,'String') 'OUTPUT.avi'], 0, objROI);
+%     if handles.tracking_status == 0
+%         set(handles.text_err,'String','Tracking completed', 'ForegroundColor', [0 1 0])
+%     else
+%         set(handles.text_err,'String','Tracking failed', 'ForegroundColor', [1 0 0])
+%     end
+%     set(handles.pushbutton_play_person,'Enable','on')
+% else
+%     set(handles.text_err,'String','First complete Matting phase', 'ForegroundColor', [1 0 0])
+% end
 
 
 % --- Executes on button press in pushbutton_stabilization.
@@ -290,8 +301,8 @@ function pushbutton_background_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 if exist(handles.stabilized_vidPath, 'file') == 2
-    [ handles.extracted_status ] = bg_substract_ilya( handles.stabilized_vidPath, get(handles.edit_output_path,'String'), handles.bgTh, handles.winSize, 0);
-%     [ handles.extracted_status ] = bg_substract( handles.stabilized_vidPath, get(handles.edit_output_path,'String'), handles.bgTh, handles.winSize, 0 );
+%     [ handles.extracted_status ] = bg_substract_ilya( handles.stabilized_vidPath, get(handles.edit_output_path,'String'), handles.bg_thresh, handles.win_size, 0);
+        [ handles.extracted_status ] = bg_substract( handles.stabilized_vidPath, get(handles.edit_output_path,'String'), handles.bg_thresh, handles.win_size, 0 );
     if handles.extracted_status == 0
         set(handles.text_err,'String','Background substruction completed', 'ForegroundColor', [0 1 0])
     else
@@ -328,7 +339,7 @@ function pushbutton_tracking_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 if exist(handles.matted_vidPath, 'file') == 2
-    objROI = [handles.locX, handles.locY, handles.locW, handles.locH];
+    objROI = [handles.loc_X, handles.loc_Y, handles.loc_W, handles.loc_H];
     [handles.tracking_status ] = tracking_ilya( handles.matted_vidPath, [get(handles.edit_output_path,'String') 'OUTPUT.avi'], 0, objROI);
     if handles.tracking_status == 0
         set(handles.text_err,'String','Tracking completed', 'ForegroundColor', [0 1 0])
@@ -369,6 +380,24 @@ function menu_option_Callback(hObject, eventdata, handles)
 % hObject    handle to menu_option (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+new_option;
+h = findobj('Tag', 'gui_2_option');
+
+if ~isempty(h)
+   gui_optionData = guidata(h);
+   set(gui_optionData.edit2_px_to_crop,  'String', handles.pixel_to_crop);
+   set(gui_optionData.edit2_px_max_dist, 'String', handles.max_corner_distance);
+   set(gui_optionData.edit2_bg_thresh,   'String', handles.bg_thresh);
+   set(gui_optionData.edit2_win_size,    'String', handles.win_size);
+   
+   set(gui_optionData.edit2_loc_x,       'String', handles.loc_X);
+   set(gui_optionData.edit2_loc_y,       'String', handles.loc_Y);
+   set(gui_optionData.edit2_loc_w,       'String', handles.loc_W);
+   set(gui_optionData.edit2_loc_h,       'String', handles.loc_H);
+end
+guidata(hObject,handles);
+
+
 
 
 % --- Executes on button press in pushbutton_play_stabilization.
@@ -473,16 +502,20 @@ matted_video = vision.VideoFileReader(handles.matted_vidPath, 'ImageColorSpace',
 first_frame = step(matted_video);
 fig = figure(1);
 imshow(first_frame);
-[xi,yi] = ginput(2);
-close(fig)
-if length(xi) == 2
-    handles.locX      = min(xi);
-    handles.locY      = min(yi);
-    handles.locW      = max(xi) - min(xi);
-    handles.locH      = max(yi) - min(yi);
+try
+    [xi,yi] = ginput(2);
+    close(fig)
+catch exception
+    set(handles.text_err,'String','Fail to update person rectangle: Not enough points ', 'ForegroundColor', [1 0 0])
+end
+
+if exist('xi','var') && length(xi) == 2
+    handles.loc_X      = min(xi);
+    handles.loc_Y      = min(yi);
+    handles.loc_W      = max(xi) - min(xi);
+    handles.loc_H      = max(yi) - min(yi);
     set(handles.text_err,'String','Person rectangle is updated', 'ForegroundColor', [0 1 0])
 else
     set(handles.text_err,'String','Fail to update person rectangle', 'ForegroundColor', [1 0 0])
 end
 guidata(hObject, handles);
-

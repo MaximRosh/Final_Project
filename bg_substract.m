@@ -26,20 +26,20 @@ cur_frame = step(input_video);
 sigma = 0.5;
 sub_im = cur_frame-background;
 % imshow(sub_im)
-I_RGB2 = imgaussfilt(cur_frame-background, sigma);
-% figure(33)
-[~, im_grad] = imgradient(rgb2gray(I_RGB2), 'roberts');
-% imshow(im_grad)
-im_gray_edge = bwareaopen(im_grad, ceil(75 / 1));
-% imshow(im_gray_edge)
-im_edges = imfill(im_gray_edge, 'holes');
-% imshow(im_edges)
-im_edges = bwareaopen(im_edges, 500);
-% imshow(im_edges)
-% figure(33)
-% imshow(cur_frame-background);
-% imshow(I_RGB2);
-step(extracted_video, im_edges);
+% I_RGB2 = imgaussfilt(cur_frame-background, sigma);
+% % figure(33)
+% [~, im_grad] = imgradient(rgb2gray(I_RGB2), 'roberts');
+% % imshow(im_grad)
+% im_gray_edge = bwareaopen(im_grad, ceil(75 / 1));
+% % imshow(im_gray_edge)
+% im_edges = imfill(im_gray_edge, 'holes');
+% % imshow(im_edges)
+% im_edges = bwareaopen(im_edges, 500);
+% % imshow(im_edges)
+% % figure(33)
+% % imshow(cur_frame-background);
+% % imshow(I_RGB2);
+step(extracted_video, sub_im);
 h = waitbar(0, sprintf('Frame processed: %d / %d', 1, number_of_frames), ...
     'Name', 'Stabilizing video ...');
 for i=1:number_of_frames
@@ -49,19 +49,19 @@ for i=1:number_of_frames
     
     sub_im = cur_frame-background;
 
-    [~, im_grad] = imgradient(rgb2gray(sub_im), 'sobel');
-
-    im_gray_edge = bwareaopen(im_grad, ceil(75 / 1));
-
-    im_edges = imfill(im_gray_edge, 'holes');
-
-    im_edges = bwareaopen(im_edges, 500);
-    
-    step(extracted_video, im_edges);
+%     [~, im_grad] = imgradient(rgb2gray(sub_im), 'sobel');
+% 
+%     im_gray_edge = bwareaopen(im_grad, ceil(75 / 1));
+% 
+%     im_edges = imfill(im_gray_edge, 'holes');
+% 
+%     im_edges = bwareaopen(im_edges, 500);
+%     
+    step(extracted_video, sub_im);
         waitbar(i / number_of_frames, h, ...
         sprintf('Frame processed: %d / %d', i, number_of_frames));
 end
-
+close(h)
 
 % Save stabilized RGB video
 release(extracted_video);
@@ -136,8 +136,8 @@ end
 
 %Display results
 
-subplot(2,2,3),  imshow(L2);title('BackGround Detected');
-subplot(2,2,4),  imshow(L2);title('Blob Detected');
+% subplot(2,2,3),  imshow(L2);title('BackGround Detected');
+% subplot(2,2,4),  imshow(L2);title('Blob Detected');
 
 hold on;
 

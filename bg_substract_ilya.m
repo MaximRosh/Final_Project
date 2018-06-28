@@ -1,4 +1,4 @@
-function [ status ] = bg_substract_ilya( inputPath, OutPath, BGth, winSize, Debug )
+function [ status ] = bg_substract_ilya( inputPath, OutPath, bg_thresh, win_size, Debug )
 
 %     inputVid    = VideoReader(inputPath);
 inputVid = vision.VideoFileReader(inputPath, 'ImageColorSpace', 'RGB');
@@ -11,9 +11,9 @@ video_Comp = 'MJPEG Compressor'; %'None (uncompressed)';%'DV Video Encoder'; %'M
 video_quality = video_info.Quality;
 number_of_frames = video_info.NumFrames;
 
-outVid      = vision.VideoFileWriter([OutPath 'extracted.avi'], 'FrameRate', frame_rate,'VideoCompressor',video_Comp,'Quality',video_quality);
+outVid      = vision.VideoFileWriter([OutPath 'extracted.avi'], 'FrameRate', frame_rate,'Quality',video_quality);%,'VideoCompressor',video_Comp,'Quality',video_quality);
 %'VideoCompressor', 'MJPEG Compressor');
-outMaskVid  = vision.VideoFileWriter([OutPath 'binary.avi'], 'FrameRate', frame_rate,'VideoCompressor',video_Comp,'Quality',video_quality);
+outMaskVid  = vision.VideoFileWriter([OutPath 'binary.avi'], 'FrameRate', frame_rate,'Quality',video_quality);%,'VideoCompressor',video_Comp,'Quality',video_quality);
 %'VideoCompressor', 'MJPEG Compressor');
 
 %     initFrame   = read(inputVid, 1);
@@ -21,6 +21,8 @@ initFrame   = step(inputVid);
 [m, n, d]   = size(initFrame);
 % start read from firts frame
 reset(inputVid)
+h = waitbar(0, sprintf('Frame processed: %d / %d', 0, (win_size + 1)/2), ...
+    'Name', 'Background substraction initialization ...');
 % save video as matrix
 count_f = 1;
 vid_matrix = single(zeros(m, n,d,number_of_frames));
@@ -41,20 +43,20 @@ medianMat = repmat(uint8(0), [m, n]);
 % Image sized grid
 [xx, yy] = meshgrid(1:n, 1:m);
 
-if ((winSize + 1) / 2) >= number_of_frames
+if ((win_size + 1) / 2) >= number_of_frames
     fprintf('input  is too small! (minimum number of frames: %d\n', ...
-        (winSize + 1) / 2);
+        (win_size + 1) / 2);
     status = 1;
     return;
 end
 
 % Last winSize frames for each pixel
-framesWindowMat = repmat(uint8(0), [m, n, winSize]);
+framesWindowMat = repmat(uint8(0), [m, n, win_size]);
 
-h = waitbar(0, sprintf('Frame processed: %d / %d', 0, (winSize + 1)/2), ...
-    'Name', 'Background substraction initialization ...');
+% h = waitbar(0, sprintf('Frame processed: %d / %d', 0, (win_size + 1)/2), ...
+%     'Name', 'Background substraction initialization ...');
 
-for t = 1:(winSize + 1)/2
+for t = 1:(win_size + 1)/2
     
     %         newFrameHSV     = rgb2hsv(read(inputVid, t));
     newFrameHSV     = rgb2hsv(vid_matrix(:,:,:,t));
@@ -74,8 +76,8 @@ for t = 1:(winSize + 1)/2
         histMat(idx) = histMat(idx) + 2;
     end
     
-    waitbar(t / (winSize + 1)/2, h, ...
-        sprintf('Frame processed: %d / %d', t, (winSize + 1)/2));
+    waitbar(t / (win_size + 1)/2, h, ...
+        sprintf('Frame processed: %d / %d', t, (win_size + 1)/2));
 end
 
 close(h);
@@ -84,11 +86,11 @@ close(h);
 tmpMat = framesWindowMat;
 
 % Create mirror reflection
-framesWindowMat(:, :, 1:(winSize + 1)/2) = ...
-    flipdim(framesWindowMat(:, :, 1:(winSize + 1)/2), 3);
+framesWindowMat(:, :, 1:(win_size + 1)/2) = ...
+    flipdim(framesWindowMat(:, :, 1:(win_size + 1)/2), 3);
 
-framesWindowMat(:, :, ((winSize + 1)/2 + 1):end) = ...
-    tmpMat(:, :, 2:(winSize + 1)/2);
+framesWindowMat(:, :, ((win_size + 1)/2 + 1):end) = ...
+    tmpMat(:, :, 2:(win_size + 1)/2);
 
 medianMat = median(framesWindowMat, 3);
 
@@ -113,12 +115,12 @@ for f = 1:number_of_frames
     
     if f > 1
         % Update median
-        if (f + (winSize -1)/2 <= number_of_frames)
-            newFrame = vid_matrix(:,:,:, f + (winSize - 1)/2);
+        if (f + (win_size -1)/2 <= number_of_frames)
+            newFrame = vid_matrix(:,:,:, f + (win_size - 1)/2);
             
         else
             % Read in reverse order from the end
-            mirrorIdx = number_of_frames - mod(f + (winSize - 1)/2, number_of_frames);
+            mirrorIdx = number_of_frames - mod(f + (win_size - 1)/2, number_of_frames);
             newFrame = vid_matrix(:,:,:, mirrorIdx);
             
         end
@@ -147,7 +149,7 @@ for f = 1:number_of_frames
         lb = lb - uint8(mask);
         
         % Calculate median
-        th = (winSize - 1) / 2;
+        th = (win_size - 1) / 2;
         for i = 1:m
             for j = 1:n
                 %lower median
@@ -168,10 +170,10 @@ for f = 1:number_of_frames
         
         % Update frame window
         framesWindowMat = circshift(framesWindowMat, [0, 0, -1]);
-        framesWindowMat(:, :, winSize) = newFrameValue;
+        framesWindowMat(:, :, win_size) = newFrameValue;
     end
     
-    diff = (abs(medianMat - curFrameValue) > BGth);
+    diff = (abs(medianMat - curFrameValue) > bg_thresh);
     
     fgMask = getFgMask_ilya(diff);
     
@@ -180,10 +182,10 @@ for f = 1:number_of_frames
     step(outVid, curFrameNoBG);
     step(outMaskVid, fgMask * 255);
     
-    if Debug && mod(f, 10) == 0
-        imwrite(diff * 255, sprintf('../output/frames/diff_f_%d.jpg', f));
-        imwrite(fgMask * 255, sprintf('../output/frames/mask_f_%d.jpg', f));
-    end
+%     if Debug && mod(f, 10) == 0
+%         imwrite(diff * 255, sprintf('../output/frames/diff_f_%d.jpg', f));
+%         imwrite(fgMask * 255, sprintf('../output/frames/mask_f_%d.jpg', f));
+%     end
     
     frameTime = toc(ticID);
     

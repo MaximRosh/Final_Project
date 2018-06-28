@@ -5,10 +5,10 @@ status = 0;
 input_video = vision.VideoFileReader(video_in_path, 'ImageColorSpace', 'RGB');
 video_info = aviinfo(video_in_path);
 frame_rate = video_info.FramesPerSecond;
-video_Comp = 'MJPEG Compressor'; %'None (uncompressed)';%'DV Video Encoder'; %'MJPEG Compressor'; % video_info.VideoCompression; %
+video_Comp = 'None (uncompressed)';%'DV Video Encoder'; %'MJPEG Compressor'; % video_info.VideoCompression; %
 video_quality = video_info.Quality;
 number_of_frames = video_info.NumFrames;
-stabilized_video = vision.VideoFileWriter([video_out_path 'stabilized.avi'], 'FrameRate', frame_rate,'VideoCompressor',video_Comp,'Quality',video_quality);
+stabilized_video = vision.VideoFileWriter([video_out_path 'stabilized.avi'], 'FrameRate', frame_rate,'Quality',video_quality);%,'VideoCompressor',video_Comp);
 
 % input_video_obj = VideoReader(video_in_path);
 % input_video_2 = read(input_video_obj);
