@@ -301,8 +301,8 @@ function pushbutton_background_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 if exist(handles.stabilized_vidPath, 'file') == 2
-%     [ handles.extracted_status ] = bg_substract_ilya( handles.stabilized_vidPath, get(handles.edit_output_path,'String'), handles.bg_thresh, handles.win_size, 0);
-        [ handles.extracted_status ] = bg_substract( handles.stabilized_vidPath, get(handles.edit_output_path,'String'), handles.bg_thresh, handles.win_size, 0 );
+    [ handles.extracted_status ] = bg_substract_ilya( handles.stabilized_vidPath, get(handles.edit_output_path,'String'), handles.bg_thresh, handles.win_size, 0);
+%         [ handles.extracted_status ] = bg_substract( handles.stabilized_vidPath, get(handles.edit_output_path,'String'), handles.bg_thresh, handles.win_size, 0 );
     if handles.extracted_status == 0
         set(handles.text_err,'String','Background substruction completed', 'ForegroundColor', [0 1 0])
     else
