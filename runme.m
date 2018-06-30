@@ -67,7 +67,7 @@ handles.loc_X      = 433;
 handles.loc_Y      = 104;
 handles.loc_W      = 53;
 handles.loc_H      = 193;
-
+handles.num_of_particles = 100;
 handles.stop_tag = 0;
 
 % Default background image
@@ -356,7 +356,7 @@ function pushbutton_tracking_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 if exist(handles.matted_vidPath, 'file') == 2
     objROI = [handles.loc_X, handles.loc_Y, handles.loc_W, handles.loc_H];
-    [handles.tracking_status ] = tracking( handles.matted_vidPath, [get(handles.edit_output_path,'String') 'OUTPUT.avi'], objROI);
+    [handles.tracking_status ] = tracking( handles.matted_vidPath, [get(handles.edit_output_path,'String') 'OUTPUT.avi'], objROI,handles.num_of_particles);
     if handles.tracking_status == 0
         set(handles.text_err,'String','Tracking completed', 'ForegroundColor', [0 1 0])
         handles.OUTPUT_vidPath = [get(handles.edit_output_path, 'String') '\OUTPUT.avi'];
@@ -413,6 +413,9 @@ if ~isempty(h)
     set(gui_optionData.edit2_loc_y,       'String', handles.loc_Y);
     set(gui_optionData.edit2_loc_w,       'String', handles.loc_W);
     set(gui_optionData.edit2_loc_h,       'String', handles.loc_H);
+    
+    set(gui_optionData.edit2_num_of_p,       'String', handles.num_of_particles);
+    
 end
 guidata(hObject,handles);
 

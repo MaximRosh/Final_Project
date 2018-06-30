@@ -1,4 +1,4 @@
-function [ status ] = tracking( input_vidPath, output_vidPath, ROI )
+function [ status ] = tracking( input_vidPath, output_vidPath, ROI,N)
 warning('off')
 inputVid   = vision.VideoFileReader(input_vidPath, 'ImageColorSpace', 'RGB','VideoOutputDataType', 'uint8');
 video_info = aviinfo(input_vidPath);
@@ -31,7 +31,7 @@ half_height = ROI(4) / 2;
 x_center = ROI(1) + half_width;
 y_center = ROI(2) + half_height;
 % Initial Settings
-N = 100;
+% N = 100;
 init_S = [x_center; y_center;  half_width ; half_height; 0 ;0];    % x_center ;y_center ;half_width; half_height; velocity_x; velocity_y
 % Create initial particle matrix 'S' from (size 6xN) as in homework N =100
 S = predictParticles(repmat(init_S, 1, N));

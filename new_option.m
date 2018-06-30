@@ -22,7 +22,7 @@ function varargout = new_option(varargin)
 
 % Edit the above text to modify the response to help new_option
 
-% Last Modified by GUIDE v2.5 28-Jun-2018 00:37:16
+% Last Modified by GUIDE v2.5 30-Jun-2018 23:37:55
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -91,6 +91,7 @@ if ~isempty(h)
    loc_y        = str2num(get(handles.edit2_loc_y,        'String'));
    loc_w        = str2num(get(handles.edit2_loc_w,        'String'));
    loc_h        = str2num(get(handles.edit2_loc_h,        'String'));
+   num_of_p        = str2num(get(handles.edit2_num_of_p,        'String'));
    
    if pixel_to_crop < 0
        errordlg('Invalid number of pixels to crop');
@@ -109,14 +110,15 @@ if ~isempty(h)
        return;
    end
    
-   gui1Data.pixel_to_crop  = pixel_to_crop;
+   gui1Data.pixel_to_crop       = pixel_to_crop;
    gui1Data.max_corner_distance = max_corner_distance;
-   gui1Data.bg_thresh      = bg_thresh;
-   gui1Data.win_size   = win_size;
-   gui1Data.loc_X      = loc_x;
-   gui1Data.loc_Y      = loc_y;
-   gui1Data.loc_W      = loc_w;
-   gui1Data.loc_H      = loc_h;
+   gui1Data.bg_thresh           = bg_thresh;
+   gui1Data.win_size            = win_size;
+   gui1Data.loc_X               = loc_x;
+   gui1Data.loc_Y               = loc_y;
+   gui1Data.loc_W               = loc_w;
+   gui1Data.loc_H               = loc_h;
+   gui1Data.num_of_particles    = num_of_p;
    
   
    guidata(h, gui1Data);
@@ -307,6 +309,29 @@ function edit2_px_to_crop_Callback(hObject, eventdata, handles)
 % --- Executes during object creation, after setting all properties.
 function edit2_px_to_crop_CreateFcn(hObject, eventdata, handles)
 % hObject    handle to edit2_px_to_crop (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function edit2_num_of_p_Callback(hObject, eventdata, handles)
+% hObject    handle to edit2_num_of_p (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of edit2_num_of_p as text
+%        str2double(get(hObject,'String')) returns contents of edit2_num_of_p as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function edit2_num_of_p_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to edit2_num_of_p (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
