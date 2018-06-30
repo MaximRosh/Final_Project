@@ -1,134 +1,141 @@
-function [status] = matting(stableVidPath, binaryVidPath, mattedVidPath, bgImageName)
-
-binaryVid   = vision.VideoFileReader(binaryVidPath, 'ImageColorSpace', 'intensity', 'VideoOutputDataType', 'uint8');
-stableVid   = vision.VideoFileReader(stableVidPath, 'ImageColorSpace', 'RGB', 'VideoOutputDataType', 'uint8');
-video_info = aviinfo(inputPath);
+function [status] = matting(stable_vidPath, binary_vidPath, matted_vidPath, bg_imageName)
+warning('off')
+binary_vid   = vision.VideoFileReader(binary_vidPath, 'ImageColorSpace', 'intensity', 'VideoOutputDataType', 'uint8');
+stable_vid   = vision.VideoFileReader(stable_vidPath, 'ImageColorSpace', 'RGB', 'VideoOutputDataType', 'uint8');
+video_info = aviinfo(stable_vidPath);
 frame_rate = video_info.FramesPerSecond;
-video_Comp = 'DV Video Encoder'; %'MJPEG Compressor'; %'None (uncompressed)';%'DV Video Encoder'; %'MJPEG Compressor'; % video_info.VideoCompression; %
+video_Comp = 'None (uncompressed)'; %'MJPEG Compressor'; %'None (uncompressed)';%'DV Video Encoder'; %'MJPEG Compressor'; % video_info.VideoCompression; %
 video_quality = video_info.Quality;
 number_of_frames = video_info.NumFrames;
 
-mattedVid   = vision.VideoFileWriter(mattedVidPath, 'FrameRate', frame_rate, 'Quality',video_quality,'VideoCompressor',video_Comp);
+matted_vid   = vision.VideoFileWriter(matted_vidPath, 'FrameRate', frame_rate, 'Quality',video_quality,'VideoCompressor',video_Comp);
 
-bgImage     = im2double(imread(bgImageName));
+bg_image     = im2double(imread(bg_imageName));
 
-h   = VideoReader(stableVidPath).Height;
-w   = VideoReader(stableVidPath).Width;
+h   = VideoReader(stable_vidPath).Height;
+w   = VideoReader(stable_vidPath).Width;
 
-bgImage = imresize(bgImage, [h, w]);
+bg_image = imresize(bg_image, [h, w]);
 
 i = 1;
-hBar = waitbar(0, '', 'Name', 'Video Matting...');
-BarOuterPosition = get(hBar, 'OuterPosition');
-set(hBar, 'OuterPosition',[BarOuterPosition(1), BarOuterPosition(2),BarOuterPosition(3),BarOuterPosition(4) * 1.2]);
+h_bar = waitbar(0, '', 'Name', 'Video Matting...');
+BarOuterPosition = get(h_bar, 'OuterPosition');
+set(h_bar, 'OuterPosition',[BarOuterPosition(1), BarOuterPosition(2),BarOuterPosition(3),BarOuterPosition(4) * 1.2]);
 
 status  = 0;
 idxs    = uint32(1:(h * w));
-pdfMap_F_given_X = zeros(h, w);
-pdfMap_B_given_X = zeros(h, w);
+map_f_given_x = zeros(h, w);
+map_b_given_x = zeros(h, w);
 
-while (~isDone(binaryVid) && ~isDone(stableVid))
+trimp_vid = 13;
+count_f = 1;
+% to start as matting video
+while count_f < trimp_vid + 1
+    step(stable_vid);
+    count_f = count_f + 1;
+end
+% Matting
+while (~isDone(binary_vid) && ~isDone(stable_vid))
     
-    waitbar(i / number_of_frames, hBar,sprintf('Frame processed: %d / %d', i, number_of_frames));
+    waitbar(i / (number_of_frames-trimp_vid), h_bar,sprintf('Frame processed: %d / %d', i, (number_of_frames-trimp_vid)));
     
     
     %% Scribbles from binary mask and Distance maps calculation
     
     % Read current frame and current binary mask
-    curMask       = im2bw(step(binaryVid));
-    curFrame      = im2double(step(stableVid));
-    curFrameHSV   = rgb2hsv(curFrame);
-    curFrameVal   = im2uint8(curFrameHSV(:, :, 3));
+    cur_mask       = im2bw(step(binary_vid));
+    cur_frame      = im2double(step(stable_vid));
+    cur_frameHSV   = rgb2hsv(cur_frame);
+    cur_frameVal   = im2uint8(cur_frameHSV(:, :, 3));
     
     % Get scribbles poins using the binary mask Create trimap using the binary mask
-    maskFG     = logical(imerode(curMask,strel('disk',5)));
-    maskBG     = logical(~imdilate(curMask,strel('disk',5)));
-    maskNB     = logical(~maskBG.* ~maskFG);
+    mask_fg     = logical(imerode(cur_mask,strel('disk',5)));
+    mask_bg     = logical(~imdilate(cur_mask,strel('disk',5)));
+    mask_nb     = logical(~mask_bg.* ~mask_fg);
     
     % check is mask is valid
-    if (sum(sum(maskFG))) < 10
+    if (sum(sum(mask_fg))) < 10
         continue;
     end
     
     % Foreground/Background likelihood
-    [~, P_C_given_F, ~, ~] = kde(curFrameVal(maskFG),256,0,255);
-    [~, P_C_given_B, ~, ~] = kde(curFrameVal(maskBG),256,0,255);
+    [~, given_f, ~, ~] = kde(cur_frameVal(mask_fg),256,0,255);
+    [~, given_b, ~, ~] = kde(cur_frameVal(mask_bg),256,0,255);
     
-    P_C_given_F = P_C_given_F ./ (P_C_given_F + P_C_given_B);
-    P_C_given_F(P_C_given_F < eps) = 0;
+    given_f = given_f ./ (given_f + given_b);
+    given_f(given_f < eps) = 0;
     
-    P_C_given_B = 1 - P_C_given_F ;
-    P_C_given_B(P_C_given_B < eps)  = 0;
+    given_b = 1 - given_f ;
+    given_b(given_b < eps)  = 0;
     
     % Compute Discrete Weighted Geodesic Distance
-    pdfMap_F_given_X(idxs) = P_C_given_F(curFrameVal(idxs) + 1);
-    [Gx_F, Gy_F]    = gradient(pdfMap_F_given_X);
-    Gmag_F          = sqrt(Gx_F.^2 + Gy_F.^2);
+    map_f_given_x(idxs) = given_f(cur_frameVal(idxs) + 1);
+    [gx_f, gy_f]    = gradient(map_f_given_x);
+    gmag_f          = sqrt(gx_f.^2 + gy_f.^2);
     
-    pdfMap_B_given_X(idxs) = P_C_given_B(curFrameVal(idxs) + 1);
-    [Gx_B, Gy_B]    = gradient(pdfMap_B_given_X);
-    Gmag_B          = sqrt(Gx_B.^2 + Gy_B.^2);
+    map_b_given_x(idxs) = given_b(cur_frameVal(idxs) + 1);
+    [gx_b, gy_b]    = gradient(map_b_given_x);
+    gmag_b          = sqrt(gx_b.^2 + gy_b.^2);
     
-    D_F = graydist(Gmag_F, maskFG, 'cityblock');
-    D_B = graydist(Gmag_B, maskBG, 'cityblock');
+    d_f = graydist(gmag_f, mask_fg, 'cityblock');
+    d_b = graydist(gmag_b, mask_bg, 'cityblock');
     
     
     %% Create Trimap
     
-    Vf          = D_F <= D_B;
-    Fboundary   = bwperim(Vf);
-    maskNB      = logical(imdilate(Fboundary, strel('disk', 8)));
+    Vf          = d_f <= d_b;
+    f_boundary   = bwperim(Vf);
+    mask_nb      = logical(imdilate(f_boundary, strel('disk', 8)));
     
     trimap          = im2double(Vf);
-    trimap(maskNB)  = 0.5;
+    trimap(mask_nb)  = 0.5;
     
-    maskFG      = (trimap == 1);
-    maskBG      = (trimap == 0);
+    mask_fg      = (trimap == 1);
+    mask_bg      = (trimap == 0);
     
     %% Create Alpha map
     
-    [~, P_C_given_F, ~, ~] = kde(curFrameVal(maskFG), 256, 0, 255);
-    [~, P_C_given_B, ~, ~] = kde(curFrameVal(maskBG), 256, 0, 255);
+    [~, given_f, ~, ~] = kde(cur_frameVal(mask_fg), 256, 0, 255);
+    [~, given_b, ~, ~] = kde(cur_frameVal(mask_bg), 256, 0, 255);
     
-    P_F_given_X = P_C_given_F ./ (P_C_given_F + P_C_given_B);
-    P_B_given_X = 1 - P_F_given_X;
+    f_given_x = given_f ./ (given_f + given_b);
+    b_given_x = 1 - f_given_x;
     
-    pdfMap_F_given_X(idxs) = P_F_given_X(curFrameVal(idxs) + 1);
-    [Gx_F, Gy_F] = gradient(pdfMap_F_given_X);
-    Gmag_F = sqrt(Gx_F.^2 + Gy_F.^2);
+    map_f_given_x(idxs) = f_given_x(cur_frameVal(idxs) + 1);
+    [gx_f, gy_f] = gradient(map_f_given_x);
+    gmag_f = sqrt(gx_f.^2 + gy_f.^2);
     
-    pdfMap_B_given_X(idxs) = P_B_given_X(curFrameVal(idxs) + 1);
-    [Gx_B, Gy_B] = gradient(pdfMap_B_given_X);
-    Gmag_B = sqrt(Gx_B.^2 + Gy_B.^2);
+    map_b_given_x(idxs) = b_given_x(cur_frameVal(idxs) + 1);
+    [gx_b, gy_b] = gradient(map_b_given_x);
+    gmag_b = sqrt(gx_b.^2 + gy_b.^2);
     
-    D_F = graydist(Gmag_F, maskFG, 'cityblock');
-    D_B = graydist(Gmag_B, maskBG, 'cityblock');
+    d_f = graydist(gmag_f, mask_fg, 'cityblock');
+    d_b = graydist(gmag_b, mask_bg, 'cityblock');
     
-    D_F(maskFG) = 0;
-    D_B(maskBG) = 0;
+    d_f(mask_fg) = 0;
+    d_b(mask_bg) = 0;
     
-    D_F(D_F == 0) = eps; D_B(D_B == 0) = eps;
-    W_F = pdfMap_F_given_X.*(D_F.^-1);
-    W_B = pdfMap_B_given_X.*(D_B.^-1);
+    d_f(d_f == 0) = eps; d_b(d_b == 0) = eps;
+    w_f = map_f_given_x.*(d_f.^-1);
+    w_b = map_b_given_x.*(d_b.^-1);
     
-    W_F(W_F == inf) = 1;
-    W_B(W_B == inf) = 1;
-    alpha = W_F./(W_F + W_B);
+    w_f(w_f == inf) = 1;
+    w_b(w_b == inf) = 1;
+    alpha = w_f./(w_f + w_b);
     
     
-    curFrameMatted = repmat(alpha, [1 1 3]).* curFrame + ...
-        repmat(1 - alpha, [1 1 3]).* bgImage;
+    cur_frame_matted = repmat(alpha, [1 1 3]).* cur_frame + repmat(1 - alpha, [1 1 3]).* bg_image;
     
-    step(mattedVid, curFrameMatted);
+    step(matted_vid, cur_frame_matted);
     
     i = i +1;
     
 end
 
-delete(hBar);
+delete(h_bar);
 
-release(mattedVid);
-release(binaryVid);
-release(stableVid);
+release(matted_vid);
+release(binary_vid);
+release(stable_vid);
 
 end

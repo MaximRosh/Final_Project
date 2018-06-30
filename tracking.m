@@ -1,32 +1,31 @@
-function [ status ] = tracking( inputVidPath, outputVidPath, manualSelection, ROI )
-
-inputVid   = vision.VideoFileReader(inputVidPath, 'ImageColorSpace', 'RGB','VideoOutputDataType', 'uint8');
-
-video_info = aviinfo(inputPath);
+function [ status ] = tracking2( input_vidPath, output_vidPath, manualSelection, ROI )
+warning('off')
+inputVid   = vision.VideoFileReader(input_vidPath, 'ImageColorSpace', 'RGB','VideoOutputDataType', 'uint8');
+video_info = aviinfo(input_vidPath);
 frame_rate = video_info.FramesPerSecond;
-video_Comp = 'DV Video Encoder'; %'MJPEG Compressor'; %'None (uncompressed)';%'DV Video Encoder'; %'MJPEG Compressor'; % video_info.VideoCompression; %
+video_Comp = 'None (uncompressed)'; %'MJPEG Compressor'; %'None (uncompressed)';%'DV Video Encoder'; %'MJPEG Compressor'; % video_info.VideoCompression; %
 video_quality = video_info.Quality;
 number_of_frames = video_info.NumFrames;
 
-outputVid   = vision.VideoFileWriter(outputVidPath,'FrameRate', frame_rate,'Quality',video_quality,'VideoCompressor',video_Comp);
-initFrame = step(inputVid);
-[rows, cols, ~] = size(initFrame);
+output_vid   = vision.VideoFileWriter(output_vidPath,'FrameRate', frame_rate,'Quality',video_quality,'VideoCompressor',video_Comp);
+init_frame = step(inputVid);
+[rows, cols, ~] = size(init_frame);
 
-% Select ROI
-if manualSelection ~= 0
-    
-    f = figure('name', 'Please select object rectangle', 'NumberTitle', 'off');
-    imshow(initFrame);
-    h = imrect;
-    position = wait(h);
-    if isempty(position)
-        close(f);
-        errordlg('No object selected!');
-        status = 1;
-        return;
-    end
-    close(f);
-else
+% % Select ROI
+% if manualSelection ~= 0
+%     
+%     f = figure('name', 'Please select object rectangle', 'NumberTitle', 'off');
+%     imshow(init_frame);
+%     h = imrect;
+%     position = wait(h);
+%     if isempty(position)
+%         close(f);
+%         errordlg('No object selected!');
+%         status = 1;
+%         return;
+%     end
+%     close(f);
+% else
     position = ROI;
     if position(1) > cols
         fprintf('Invalid X coordinate specified\n');
@@ -43,56 +42,48 @@ else
     elseif position(2) + position(4) > rows
         position(4) = rows - position(2);
     end
-end
+% end
 
-halfWidth  = position(3) / 2;
-halfHeight = position(4) / 2;
-cX = position(1) + halfWidth;
-cY = position(2) + halfHeight;
+half_width  = position(3) / 2;
+half_height = position(4) / 2;
+x_center = position(1) + half_width;
+y_center = position(2) + half_height;
 
 % Initial Settings
 N = 100;
-initS = [cX         % x center
-    cY         % y center
-    halfWidth  % half width
-    halfHeight % half height
-    0          % velocity x
-    0   ];     % velocity y
+init_S = [x_center; y_center;  half_width ; half_height; 0 ;0];    % x_center ;y_center ;half_width; half_height; velocity_x; velocity_y
 
 % CREATE INITIAL PARTICLE MATRIX 'S' (SIZE 6xN)
-S = predictParticles(repmat(initS, 1, N));
+S = predictParticles(repmat(init_S, 1, N));
 
 % COMPUTE NORMALIZED HISTOGRAM
-q = compNormHist(initFrame, initS);
+q = compNormHist(init_frame, init_S);
 
-W = compNormWeights(initFrame, S, q);
+W = compNormWeights(init_frame, S, q);
 C = cumsum(W);
 
-shapeInserter = ...
-    vision.ShapeInserter('BorderColor', 'Custom', ...
-    'CustomBorderColor', [255 0 0]);
+shape_inserter = vision.ShapeInserter('BorderColor', 'Custom', 'CustomBorderColor', [255 0 0]);
 
 f = 1;
-waitBar = waitbar(0, sprintf('Frame processed: %d / %d', f, number_of_frames), ...
-    'Name', 'Tracking ...');
+waitBar = waitbar(0, sprintf('Frame processed: %d / %d', f, number_of_frames), 'Name', 'Tracking ...');
 
 for i = 2:number_of_frames
-    prevS = S;
+    prev_S = S;
     
-    newFrame = step(inputVid);
+    new_frame = step(inputVid);
     
     % SAMPLE THE CURRENT PARTICLE FILTERS
-    nextTagS = sampleParticles(prevS, C);
+    next_tag_S = sampleParticles(prev_S, C);
     
     % PREDICT THE NEXT PARTICLE FILTERS
-    nextS = predictParticles(nextTagS);
+    next_S = predictParticles(next_tag_S);
     
     % COMPUTE NORMALIZED WEIGHTS (W) AND PREDICTOR CDFS (C)
-    W = compNormWeights(newFrame, nextS, q);
+    W = compNormWeights(new_frame, next_S, q);
     C = cumsum(W);
     
     % SAMPLE NEW PARTICLES FROM THE NEW CDF'S
-    S = sampleParticles(nextS, C);
+    S = sampleParticles(next_S, C);
     
     % CREATE DETECTOR PLOTS
     %         if (mod(i, 10)==0)
@@ -100,27 +91,26 @@ for i = 2:number_of_frames
     %         end
     
     % Draw tracking rectangle
-    hW  = S(3, 1);
-    hH  = S(4, 1);
-    cX  = S(1, :) * W';
-    cY  = S(2, :) * W';
+    h_W  = S(3, 1);
+    h_H  = S(4, 1);
+    x_center  = S(1, :) * W';
+    y_center  = S(2, :) * W';
     
-    x   = int16(round(max(cX - hW, 1)));
-    w   = int16(round(min(hW * 2, cols - x)));
-    y   = int16(round(max(cY - hH, 1)));
-    h   = int16(round(min(hH * 2, rows - y)));
+    x   = int16(round(max(x_center - h_W, 1)));
+    w   = int16(round(min(h_W * 2, cols - x)));
+    y   = int16(round(max(y_center - h_H, 1)));
+    h   = int16(round(min(h_H * 2, rows - y)));
     
-    trackFrame = step(shapeInserter, newFrame, [x, y, w, h]);
-    step(outputVid, trackFrame);
+    track_frame = step(shape_inserter, new_frame, [x, y, w, h]);
+    step(output_vid, track_frame);
     
     % Update progress bar
     f = f + 1;
-    waitbar(f / number_of_frames, waitBar, ...
-        sprintf('Frame processed: %d / %d', f, number_of_frames));
+    waitbar(f / number_of_frames, waitBar, sprintf('Frame processed: %d / %d', f, number_of_frames));
 end
 
 close(waitBar);
-release(outputVid);
+release(output_vid);
 release(inputVid);
 
 status = 0;

@@ -60,13 +60,13 @@ handles.pixel_to_crop  = 30;
 handles.max_corner_distance = 10;
 
 
-handles.win_size   = 61;
-handles.bg_thresh  = 25;
+handles.win_size   = 99;
+handles.bg_thresh  = 73;
 
-handles.loc_X      = 149;
-handles.loc_Y      = 12;
-handles.loc_W      = 94;
-handles.loc_H      = 270;
+handles.loc_X      = 433;
+handles.loc_Y      = 104;
+handles.loc_W      = 53;
+handles.loc_H      = 193;
 
 % Default background image
 handles.background_img = '..\INPUT\background.jpg';

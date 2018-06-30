@@ -1,11 +1,11 @@
-function [ status ] = stabilize( video_in_path, video_out_path, pixel_to_crop, max_corner_distance )
+function [ status ] = stabilize2( video_in_path, video_out_path, pixel_to_crop, max_corner_distance )
 warning('off')
 min_num_of_points = 3;
 status = 0;
 input_video = vision.VideoFileReader(video_in_path, 'ImageColorSpace', 'RGB');
 video_info = aviinfo(video_in_path);
 frame_rate = video_info.FramesPerSecond;
-video_Comp = 'DV Video Encoder'; %'None (uncompressed)';%'DV Video Encoder'; %'MJPEG Compressor'; % video_info.VideoCompression; %
+video_Comp = 'None (uncompressed)';%'DV Video Encoder'; %'MJPEG Compressor'; % video_info.VideoCompression; %
 video_quality = video_info.Quality;
 number_of_frames = video_info.NumFrames;
 stabilized_video = vision.VideoFileWriter([video_out_path 'stabilized.avi'], 'FrameRate', frame_rate,'Quality',video_quality,'VideoCompressor',video_Comp);
