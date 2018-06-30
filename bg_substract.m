@@ -124,7 +124,7 @@ for f = 1:number_of_frames
     % Morphologic monipulations
     fg_mask_tmp = imdilate(diff, strel('disk', 5));
     fg_mask_tmp = imfill(fg_mask_tmp,'holes');
-    fg_mask_tmp = imclose(fg_mask_tmp,strel('disk',10));
+    fg_mask_tmp = imclose(fg_mask_tmp,strel('disk',15));
     fg_mask_tmp = imfill(fg_mask_tmp,'holes');
     fg_mask_tmp = imerode(fg_mask_tmp, strel('disk', 4));
     fg_mask_tmp = imclose(fg_mask_tmp,strel('disk',2));
